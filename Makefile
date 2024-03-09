@@ -1,32 +1,22 @@
 .PHONY: all install
 
-INSTALL_DIR := /usr/lib/debian-luks-suspend
-INITRAMFS_TOOLS := /etc/initramfs-tools/hooks/
-
-plymouth:
-	@sed -i 's;d/debian-luks-suspend.*;d/debian-luks-suspend -g;' systemd-suspend.service
-
-noplymouth:
-	@sed -i 's;d/debian-luks-suspend.*;d/debian-luks-suspend;' systemd-suspend.service
+INSTALL_DIR := /usr/lib/arch-luks-suspend2
+INITRAMFS_TOOLS := /usr/lib/initcpio/hooks
 
 all:
 
 install:
-	install -Dm755 debian-luks-suspend "$(DESTDIR)$(INSTALL_DIR)/debian-luks-suspend"
+	install -Dm755 arch-luks-suspend2 "$(DESTDIR)$(INSTALL_DIR)/arch-luks-suspend2"
 	install -Dm755 encrypt-on-suspend "$(DESTDIR)$(INSTALL_DIR)/encrypt-on-suspend"
-	install -Dm755 initramfs-tools-hook "$(DESTDIR)$(INITRAMFS_TOOLS)/initramfs-tools-hook"
-	install -Dm644 systemd-suspend.service "$(DESTDIR)/etc/systemd/system/systemd-suspend.service"
-	update-initramfs -u -k all
-	systemctl daemon-reload
+	install -Dm644 initcpio-hook "$(DESTDIR)$(INITRAMFS_TOOLS)/suspend"
+	install -Dm644 arch-luks-suspend2.service "$(DESTDIR)/usr/lib/systemd/system/arch-luks-suspend2.service"
+	systemctl enable arch-luks-suspend2.service
 
 uninstall:
-	rm -f "$(DESTDIR)$(INSTALL_DIR)/debian-luks-suspend"
+	systemctl disable arch-luks-suspend2.service
+	rm -f "$(DESTDIR)$(INSTALL_DIR)/arch-luks-suspend2"
 	rm -f "$(DESTDIR)$(INSTALL_DIR)/encrypt-on-suspend"
-	rm -f "$(DESTDIR)$(INITRAMFS_TOOLS)/initramfs-tools-hook"
-	rm -f "$(DESTDIR)/etc/systemd/system/systemd-suspend.service"
-	update-initramfs -u -k all
-	systemctl daemon-reload
-
-
+	rm -f "$(DESTDIR)$(INITRAMFS_TOOLS)/suspend"
+	rm -f "$(DESTDIR)/usr/lib/systemd/system/arch-luks-suspend2.service"
 
 # vim:set sw=4 ts=4 noet:
