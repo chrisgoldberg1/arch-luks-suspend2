@@ -12,9 +12,12 @@ DefaultDependencies=no
 Requires=sleep.target
 After=sleep.target
 
+[Install]
+Alias=systemd-suspend.service
+
 [Service]
 Type=oneshot
-ExecStart=/bin/openvt -c9 -ws -- /usr/lib/debian-luks-suspend/debian-luks-suspend -g
+ExecStart=/bin/openvt -c9 -ws -- /usr/lib/arch-luks-suspend2/arch-luks-suspend2
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=debian-luks-suspend
+SyslogIdentifier=arch-luks-suspend2
