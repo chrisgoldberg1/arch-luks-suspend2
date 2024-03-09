@@ -48,7 +48,9 @@ whatsoever.  You have been warned.
 Installation
 -------------
 To install, run 'make install' as root.
+
 Further add `suspend` and `shutdown` to the `hooks` in your `mkinitcpio.conf` and run `mkinitcpio -P`.
+
 To enable/disable `arch-luks-suspend2` run `systemctl enable arch-luks-suspend2.service` or `systemctl disable arch-luks-suspend2.service`
 
 Authors and license
