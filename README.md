@@ -7,9 +7,11 @@ Modified from the original [debian-luks-suspend][] for [Debian][] that again was
 modified from the original [arch-luks-suspend][] for [Arch Linux][].
 
 Further modified to work on Arch Linux again.
+
 Plymouth bootsplash functionality was removed!
 
 Original text of the [debian-luks-suspend][] repository that applies to [Arch Linux][]:
+
 When using debian's default full-disk encryption using LUKS, the encryption 
 key is kept in memory when suspending the system. This drawback defeats the 
 purpose of encryption if you carry around your suspended laptop a lot. One 
