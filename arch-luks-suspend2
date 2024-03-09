@@ -4,87 +4,67 @@ set -u
 trap 'echo "Press ENTER to continue."; read dummy' ERR
 
 INITRAMFS_DIR="/run/initramfs/"
-INITRAMFS_DIR_ORIG=${INITRAMFS_DIR}
-SYSTEM_SLEEP_PATH=/lib/systemd/system-sleep
-SYSTEM_SLEEP_BINARY=/lib/systemd/systemd-sleep
-SUSPEND_SCRIPT=bin/encrypt-on-suspend
+SYSTEM_SLEEP_PATH=/usr/lib/systemd/system-sleep
+SYSTEM_SLEEP_BINARY=/usr/lib/systemd/systemd-sleep
+SUSPEND_SCRIPT=suspend
 BIND_PATHS="/sys /proc /dev /run"
 REMOUNT=0
 CRYPTNAME="$(pvdisplay -C -o pv_name --noheadings | tr -d ' ' | cut -d\/ -f4)"
-CHROOT_ARGS=""
 
 # run_dir DIR ARGS...
 # Run all executable scripts in directory DIR with arguments ARGS
 run_dir() {
-    local dir=$1
-    shift
-    find "${dir}" -type f -executable -exec "{}" "$@" ";"
+	local dir=$1
+	shift
+	find "${dir}" -type f -executable -exec "{}" "$@" ";"
 }
 
 ext4_cryptdevice_mount_options() {
-    local mt="$(grep "^${1} " /proc/mounts | cut -d ' ' -f 3,4)"
-    if [[ "${mt:0:5}" == "ext4 " ]]; then
-        echo "${mt:5}"
-    fi
+	local mt="$(grep "^${1} " /proc/mounts | cut -d ' ' -f 3,4)"
+	if [[ "${mt:0:5}" == "ext4 " ]]; then
+		echo "${mt:5}"
+	fi
 }
 
 mount_initramfs() {
-    local INITRAMFS=$1
+	local INITRAMFS=$1
 
-    mounted=`mount | grep $INITRAMFS_DIR`
-    if [[ $? -eq 0 ]] ; then
-        return
-    fi
-    
-    if [[ ! -e "$INITRAMFS_DIR" ]] ; then
-        mkdir "$INITRAMFS_DIR"
-        chmod 700 "$INITRAMFS_DIR"
-    fi
+	mounted=`mount | grep $INITRAMFS_DIR`
+	if [[ $? -eq 0 ]] ; then
+		return
+	fi
+	
+	if [[ ! -e "$INITRAMFS_DIR" ]] ; then
+		mkdir "$INITRAMFS_DIR"
+		chmod 700 "$INITRAMFS_DIR"
+	fi
 
-    mount -t tmpfs -o size=512m tmpfs ${INITRAMFS_DIR}
+	mount -t tmpfs -o size=512m tmpfs ${INITRAMFS_DIR}
 
-    unmkinitramfs "${INITRAMFS}" "${INITRAMFS_DIR}"
-    if [[ -d ${INITRAMFS_DIR}/main ]] ; then
-        INITRAMFS_DIR_ORIG=${INITRAMFS_DIR}
-        INITRAMFS_DIR=${INITRAMFS_DIR}/main
-    fi
+	cpio -id < "${INITRAMFS}" --make-directories --no-absolute-filenames --directory="${INITRAMFS_DIR}"
 
-    for p in ${BIND_PATHS}; do
-        mkdir -p "${INITRAMFS_DIR}${p}"
-        mount -o bind ${p} "${INITRAMFS_DIR}${p}"
-    done
+	for p in ${BIND_PATHS}; do
+		mkdir -p "${INITRAMFS_DIR}${p}"
+		mount -o bind ${p} "${INITRAMFS_DIR}${p}"
+	done
 }
 
 unmount_initramfs() {
-    if [[ "${INITRAMFS_DIR_ORIG}" != "${INITRAMFS_DIR}" ]] ; then
-        INITRAMFS_DIR=${INITRAMFS_DIR_ORIG}
-    fi
-    umount -R ${INITRAMFS_DIR}
+	umount -R ${INITRAMFS_DIR}
 }
 
 service_is_running() {
-    systemctl is-active --quiet "$1"
-    echo $?
-}
-
-parse_command_line() {
-    for i in "$@" ; do
-        case $i in
-            -g|--gui)
-                CHROOT_ARGS=" -g"
-            ;;
-        esac
-    done
+	systemctl is-active --quiet "$1"
+	echo $?
 }
 
 ## Main script
 loginctl lock-sessions
-parse_command_line "$@"
 
 # parse boot command line into $kernel_cmdline
 declare -A kernel_cmdline
 for x in $(cat /proc/cmdline) ; do
-    kernel_cmdline[$(echo $x | cut -f1 -d=)]=$(echo $x | cut -f2 -d=)
+	kernel_cmdline[$(echo $x | cut -f1 -d=)]=$(echo $x | cut -f2 -d=)
 done
 
 # clean up the terminal if a quiet console is requested
@@ -94,7 +74,7 @@ done
 ROOT_CRYPT_DEVICE=${kernel_cmdline[root]}
 
 # extract initramfs to switch to during suspend
-INITRAMFS=`echo "/boot/${kernel_cmdline[BOOT_IMAGE]//vmlinuz/initrd.img}"`
+INITRAMFS=`echo "${kernel_cmdline[BOOT_IMAGE]//vmlinuz-linux/initramfs-linux.img}"`
 mount_initramfs $INITRAMFS
 
 [ -e "${INITRAMFS_DIR}/$SUSPEND_SCRIPT" ] || exec $SYSTEM_SLEEP_BINARY suspend
@@ -108,7 +88,7 @@ run_dir "${SYSTEM_SLEEP_PATH}" pre suspend
 bluetooth_state=`service_is_running bluetooth`
 
 if [ $bluetooth_state -eq 0 ] ; then
-    systemctl stop bluetooth
+	systemctl stop bluetooth
 fi
 
 systemctl stop NetworkManager-dispatcher
@@ -123,8 +103,8 @@ systemctl stop systemd-udevd.service
 # `barrier=0` if this is true of the crypt fs.
 MOUNT_OPTS="$(ext4_cryptdevice_mount_options "$ROOT_CRYPT_DEVICE")"
 if [[ "$MOUNT_OPTS" ]] && ! [[ "$MOUNT_OPTS" == *nobarrier* || "$MOUNT_OPTS" == *barrier=0* ]]; then
-    REMOUNT=1
-    mount -o remount,"$MOUNT_OPTS",barrier=0 /
+	REMOUNT=1
+	mount -o remount,"$MOUNT_OPTS",barrier=0 /
 fi
 
 # If we have a kernel that supports manual sync before suspend, enable it
@@ -132,13 +112,13 @@ fi
 
 # Hand over execution to script inside initramfs
 # Nice it to help reduce race conditions
-(cd "${INITRAMFS_DIR}" && nice -n -20 chroot . /$SUSPEND_SCRIPT $CRYPTNAME $CHROOT_ARGS)
+(cd "${INITRAMFS_DIR}" && nice -n -20 chroot . /$SUSPEND_SCRIPT $CRYPTNAME)
 
 [ -e /sys/power/sync_on_suspend ] && echo "1" > /sys/power/sync_on_suspend
 
 # Restore original mount options if necessary
 if ((REMOUNT)); then
-    mount -o remount,"$MOUNT_OPTS",barrier=1 /
+	mount -o remount,"$MOUNT_OPTS",barrier=1 /
 fi
 
 # Quit the temporary udev process from the chroot
@@ -153,7 +133,7 @@ systemctl start NetworkManager
 systemctl start NetworkManager-dispatcher
 
 if [ $bluetooth_state -eq 0 ] ; then
-    systemctl start bluetooth
+	systemctl start bluetooth
 fi
 
 # Run post-suspend scripts
