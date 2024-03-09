@@ -3,7 +3,7 @@ arch-luks-suspend2
 
 A script for [Arch Linux][] to lock the encrypted root volume on suspend.
 
-Modified from the original [debian-luks-suspend][] for [Debian Linux][] that again was
+Modified from the original [debian-luks-suspend][] for [Debian][] that again was
 modified from the original [arch-luks-suspend][] for [Arch Linux][].
 
 Further modified to work on Arch Linux again.
